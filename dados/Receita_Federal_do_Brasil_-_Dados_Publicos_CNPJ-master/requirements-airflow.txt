@@ -1,0 +1,20 @@
+# Dependências para o ETL da Receita Federal no Airflow
+# Instale com: pip install -r requirements-airflow.txt
+# Ou adicione ao _PIP_ADDITIONAL_REQUIREMENTS no docker-compose.yml
+
+beautifulsoup4>=4.9.3
+bs4>=0.0.1
+lxml>=4.6.3
+numpy>=1.20.3
+pandas>=1.2.4
+psycopg2-binary>=2.9.1
+python-dotenv==1.0.0
+requests==2.30.0
+SQLAlchemy>=1.4.18
+urllib3==2.0.2
+wget>=3.2
+
+# Dependências do Airflow (já incluídas na imagem base)
+# apache-airflow>=2.8.1
+# apache-airflow-providers-postgres>=5.0.0
+
