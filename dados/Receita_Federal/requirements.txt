@@ -1,5 +1,0 @@
-beautifulsoup4>=4.9.3
-requests>=2.30.0
-wget>=3.2
-lxml>=4.9.0
-
