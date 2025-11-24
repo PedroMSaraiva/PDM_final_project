@@ -1,0 +1,61 @@
+
+Arquivo Lucro Presumido 2023.csv:
+1.195.468 registros.
+Arquivo Lucro Presumido 2022.csv:
+1.150.656 registros.
+Arquivo Lucro Presumido 2021.csv:
+1.084.364 registros.
+Arquivo Lucro Presumido 2020.csv:
+1.059.647 registros.
+Arquivo Lucro Presumido 2019.csv:
+1.005.076 registros.
+Arquivo Lucro Presumido 2018.csv:
+953.060 registros.
+A primeira linha é o cabeçalho.
+Informações extraídas em 21/01/2025.
+
+Campos:
+ano – inteiro 4 dígitos – 2018 a 2023.
+cnpj – CNPJ formatado Ex: 11.111.111/0001-91.
+cnpj_da_scp – se diferente de 0 indica uma Sociedade de Conta de Participação - SCP cujo sócio ostensivo é a empresa indicada no campo CNPJ; se igual a 0, não se trata de SCP
+forma_de_tributacao – LUCRO PRESUMIDO, LUCRO PRESUMIDO/ARBITRADO, LUCRO PRESUMIDO/REAL ou LUCRO PRESUMIDO/REAL/ARBITRADO. Nos poucos casos de tributação de formas mistas, a informação do CNPJ aparece em todos os arquivos correspondentes às formas de tributação abrangidas.
+quantidade_de_escrituracoes – inteiro. Indica o número de ECF entregues com a forma de tributação.
+
+Arquivo Lucro Real.csv:
+1.722.535 registros.
+A primeira linha é o cabeçalho.
+Informações extraídas em 21/01/2025.
+
+Campos:
+ano – inteiro 4 dígitos – 2015 a 2023.
+cnpj – CNPJ formatado Ex: 11.111.111/0001-91.
+cnpj_da_scp – se diferente de 0 indica uma Sociedade de Conta de Participação - SCP cujo sócio ostensivo é a empresa indicada no campo CNPJ; se igual a 0, não se trata de SCP
+OBS. Até o ano 2017, era informado o código da SCP, não necessariamente seu CNPJ
+forma_de_tributacao –  LUCRO REAL, LUCRO REAL/ARBITRADO, LUCRO PRESUMIDO/REAL, LUCRO PRESUMIDO/REAL/ARBITRADO. Nos poucos casos de tributação de formas mistas, a informação do CNPJ aparece em todos os arquivos correspondentes às formas de tributação abrangidas.
+quantidade_de_escrituracoes – inteiro. Indica o número de ECF entregues com a forma de tributação.
+
+Arquivo Imunes e isentas.csv:
+1.802.763 registros.
+A primeira linha é o cabeçalho.
+Informações extraídas em 21/01/2025.
+
+Campos:
+ano – inteiro 4 dígitos – 2017 a 2023.
+cnpj – CNPJ formatado Ex: 11.111.111/0001-91.
+cnpj_da_scp – se diferente de 0 indica uma Sociedade de Conta de Participação - SCP cujo sócio ostensivo é a empresa indicada no campo CNPJ; se igual a 0, não se trata de SCP
+OBS. Até o ano 2017, era informado o código da SCP, não necessariamente seu CNPJ
+forma_de_tributacao –  IMUNE DO IRPJ, ISENTA DO IRPJ.
+quantidade_de_escrituracoes –  inteiro. Indica o número de ECF entregues com a forma de tributação.
+
+Arquivo Lucro Arbitrado.csv:
+8.209 registros.
+A primeira linha é o cabeçalho.
+Informações extraídas em 21/01/2025.
+
+Campos:
+ano – inteiro 4 dígitos – 2015 a 2023.
+cnpj – CNPJ formatado Ex: 11.111.111/0001-91.
+cnpj_da_scp – se diferente de 0 indica uma Sociedade de Conta de Participação - SCP cujo sócio ostensivo é a empresa indicada no campo CNPJ; se igual a 0, não se trata de SCP
+OBS. Até o ano 2017, era informado o código da SCP, não necessariamente seu CNPJ
+forma_de_tributacao – LUCRO ARBITRADO, LUCRO REAL/ARBITRADO, LUCRO PRESUMIDO/ARBITRADO, LUCRO PRESUMIDO/REAL/ARBITRADO. Nos poucos casos de tributação de formas mistas, a informação do CNPJ aparece em todos os arquivos correspondentes às formas de tributação abrangidas.
+quantidade_de_escrituracoes –  inteiro. Indica o número de ECF entregues com a forma de tributação.

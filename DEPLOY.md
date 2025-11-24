@@ -1,90 +1,113 @@
-# 🚀 Deploy Cloud Functions via Pub/Sub
+# 🚀 Deploy das Cloud Functions e Loaders
 
-Guia único para deploy das Cloud Functions usando **exclusivamente Pub/Sub triggers**.
-
-## 📋 Pré-requisitos
-
-```bash
-# Autenticar e configurar projeto
-gcloud auth login
-gcloud config set project SEU-PROJETO-ID
-
-# Habilitar APIs
-gcloud services enable cloudfunctions.googleapis.com cloudbuild.googleapis.com storage.googleapis.com pubsub.googleapis.com
-
-# Criar bucket
-gsutil mb gs://dados-cnpjs
-```
-
-## 🎯 Deploy das Funções
-
-### 1️⃣ Crawler Receita Federal
-
-**Criar tópico Pub/Sub:**
-
-```bash
-gcloud pubsub topics create receita-federal-download
-```
-
-**Deploy:**
-
-```bash
-cd /home/saraiva/Documents/BIA/6p/PDM/TrabalhoFinal
-
-gcloud functions deploy crawler-receita-federal \
-  --gen2 \
-  --runtime=python311 \
-  --region=us-east1 \
-  --source=./Receita_Federal_CF \
-  --entry-point=crawler_receita_pubsub \
-  --trigger-topic=receita-federal-download \
-  --timeout=540s \
-  --memory=2Gi \
-  --max-instances=1 \
-  --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=receita_federal,START_YEAR_MONTH=2023-01,END_YEAR_MONTH=2025-11
-```
-
-**Invocar:**
-
-```bash
-# 1. Listar pastas disponíveis
-gcloud pubsub topics publish receita-federal-download --message='{}'
-
-# 2. Listar arquivos de uma pasta específica
-gcloud pubsub topics publish receita-federal-download \
-  --message='{"folder": "2024-03", "list_files": true}'
-
-# 3. Processar UM arquivo específico (RECOMENDADO - evita timeout)
-gcloud pubsub topics publish receita-federal-download \
-  --message='{"folder": "2024-03", "file": "Estabelecimentos0.zip"}'
-
-# 4. Processar pasta completa (CUIDADO: pode dar timeout!)
-gcloud pubsub topics publish receita-federal-download \
-  --message='{"folder": "2024-03"}'
-```
-
-**⚠️ IMPORTANTE:** Para arquivos grandes (Estabelecimentos), use SEMPRE o modo de arquivo individual (#3) para evitar timeout.
+Documentação única para subir, atualizar e operar todos os componentes de ingestão e carregamento BigQuery deste repositório.
 
 ---
 
-### 2️⃣ Download PGFN (Fazenda Nacional)
+## 1. Pré-requisitos
 
-**Criar tópico Pub/Sub:**
+```bash
+gcloud auth login
+gcloud config set project <SEU_PROJETO>
+
+gcloud services enable \
+  cloudfunctions.googleapis.com \
+  cloudbuild.googleapis.com \
+  pubsub.googleapis.com \
+  storage.googleapis.com \
+  bigquery.googleapis.com \
+  workflows.googleapis.com \
+  cloudscheduler.googleapis.com
+
+gsutil mb -l southamerica-east1 gs://dados-cnpjs
+```
+
+> Ajuste bucket/região conforme necessidade.
+
+---
+
+## 2. Mapa das funções
+
+| Função | Diretório (`Cloud_Functions/...`) | Trigger | Destino |
+| --- | --- | --- | --- |
+| `crawler-receita-estabelecimentos` | `Receita_estabelecimentos_CF` | Pub/Sub `receita-estabelecimentos-download` | GCS `receita_federal/estabelecimentos/<ano-mes>` |
+| `crawler-receita-empresas` | `Receita_empresas_CF` | Pub/Sub `receita-empresas-download` | GCS `receita_federal/empresas/<ano-mes>` |
+| `crawler-receita-lucros` | `Receita_lucros_CF` | Pub/Sub `receita-lucros-download` | GCS `receita_federal/regime_tributario/<arquivo>` |
+| `download-fazenda-nacional` | `Fazenda_CF` | Pub/Sub `fazenda-download` | GCS `fazenda_nacional/<ano>/<trimestre>/<tipo>` |
+| `banco-central-indicadores` | `Banco_Central_CF` | Pub/Sub `banco-central-download` | GCS `banco_central/<ano_mes>` + BigQuery |
+| `bigquery-loader-fazenda` | `BigQuery_loader_fazenda_CF` | Pub/Sub `bigquery-loader-fazenda` | BigQuery dataset PGFN |
+| `bigquery-loader-receita` | `BigQuery_loader_receita_CF` | Pub/Sub `bigquery-loader-receita` ou script local | BigQuery dataset Receita (estabelecimentos + empresas) |
+
+---
+
+## 3. Deploy dos crawlers (download → GCS)
+
+Execute sempre a partir da raiz do projeto.
+
+### Receita – Estabelecimentos
+
+```bash
+gcloud pubsub topics create receita-estabelecimentos-download
+
+gcloud functions deploy crawler-receita-estabelecimentos \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-east1 \
+  --source=./Cloud_Functions/Receita_estabelecimentos_CF \
+  --entry-point=crawler_receita_pubsub \
+  --trigger-topic=receita-estabelecimentos-download \
+  --timeout=540s \
+  --memory=8Gi \
+  --max-instances=1 \
+  --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=receita_federal/estabelecimentos,START_YEAR_MONTH=2023-01,END_YEAR_MONTH=2025-12
+```
+
+### Receita – Empresas
+
+```bash
+gcloud pubsub topics create receita-empresas-download
+
+gcloud functions deploy crawler-receita-empresas \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-east1 \
+  --source=./Cloud_Functions/Receita_empresas_CF \
+  --entry-point=crawler_receita_pubsub \
+  --trigger-topic=receita-empresas-download \
+  --timeout=540s \
+  --memory=8Gi \
+  --max-instances=1 \
+  --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=receita_federal/empresas,START_YEAR_MONTH=2023-01,END_YEAR_MONTH=2025-12
+```
+
+### Receita – Regime Tributário (Lucros)
+
+```bash
+gcloud pubsub topics create receita-lucros-download
+
+gcloud functions deploy crawler-receita-lucros \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-east1 \
+  --source=./Cloud_Functions/Receita_lucros_CF \
+  --entry-point=crawler_receita_pubsub \
+  --trigger-topic=receita-lucros-download \
+  --timeout=540s \
+  --memory=4Gi \
+  --max-instances=1 \
+  --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=receita_federal/regime_tributario
+```
+
+### PGFN (Fazenda Nacional)
 
 ```bash
 gcloud pubsub topics create fazenda-download
-```
-
-**Deploy:**
-
-```bash
-cd /home/saraiva/Documents/BIA/6p/PDM/TrabalhoFinal
 
 gcloud functions deploy download-fazenda-nacional \
   --gen2 \
   --runtime=python311 \
   --region=us-east1 \
-  --source=./Fazenda_CF \
+  --source=./Cloud_Functions/Fazenda_CF \
   --entry-point=download_fazenda_pubsub \
   --trigger-topic=fazenda-download \
   --timeout=540s \
@@ -93,153 +116,230 @@ gcloud functions deploy download-fazenda-nacional \
   --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=fazenda_nacional,START_YEAR=2020,END_YEAR=2025
 ```
 
-**Invocar:**
+### Banco Central
 
 ```bash
-# Processar todos os arquivos configurados
-gcloud pubsub topics publish fazenda-download --message='{}'
+gcloud pubsub topics create banco-central-download
 
-# Processar arquivo específico
-gcloud pubsub topics publish fazenda-download --message='{"year": 2024, "quarter": 3, "data_type": "Dados_abertos_FGTS"}'
+gcloud functions deploy banco-central-indicadores \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-east1 \
+  --source=./Cloud_Functions/Banco_Central_CF \
+  --entry-point=collect_indicadores_pubsub \
+  --trigger-topic=banco-central-download \
+  --timeout=540s \
+  --memory=2Gi \
+  --max-instances=1 \
+  --set-env-vars DESTINATION_BUCKET_NAME=dados-cnpjs,BASE_PATH=banco_central
 ```
 
 ---
 
-## 📊 Configurações
+## 4. Deploy dos loaders BigQuery
 
-### Receita Federal
+> Para automatizar o processo (criação dos tópicos + deploy das duas funções), rode `./scripts/deploy-loaders.sh`.
 
-| Variável                   | Descrição       | Valor               |
-| --------------------------- | ----------------- | ------------------- |
-| `DESTINATION_BUCKET_NAME` | Bucket GCS        | `dados-cnpjs`     |
-| `BASE_PATH`               | Caminho no bucket | `receita_federal` |
-| `START_YEAR_MONTH`        | Início (YYYY-MM) | `2023-01`         |
-| `END_YEAR_MONTH`          | Fim (YYYY-MM)     | `2025-12`         |
-| `ALLOWED_MONTHS`          | Meses (ex: 03,09) | `03,09`           |
+### Loader PGFN → BigQuery
 
-### Fazenda Nacional
+```bash
+gcloud pubsub topics create bigquery-loader-fazenda
 
-| Variável                   | Descrição       | Valor                |
-| --------------------------- | ----------------- | -------------------- |
-| `DESTINATION_BUCKET_NAME` | Bucket GCS        | `dados-cnpjs`      |
-| `BASE_PATH`               | Caminho no bucket | `fazenda_nacional` |
-| `START_YEAR`              | Ano inicial       | `2020`             |
-| `END_YEAR`                | Ano final         | `2025`             |
-| `END_QUARTER`             | Último trimestre | `3`                |
+gcloud functions deploy bigquery-loader-fazenda \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-central1 \
+  --source=./Cloud_Functions/BigQuery_loader_fazenda_CF \
+  --entry-point=load_fazenda_bigquery \
+  --trigger-topic=bigquery-loader-fazenda \
+  --timeout=3600s \
+  --memory=2Gi \
+  --max-instances=1 \
+  --set-env-vars PROJECT_ID=<SEU_PROJETO>,DATASET_ID=main_database,BUCKET_NAME=dados-cnpjs,BASE_PATH=fazenda_nacional
+```
+
+### Loader Receita → BigQuery (Estabelecimentos + Empresas)
+
+```bash
+gcloud pubsub topics create bigquery-loader-receita
+
+gcloud functions deploy bigquery-loader-receita \
+  --gen2 \
+  --runtime=python311 \
+  --region=us-central1 \
+  --source=./Cloud_Functions/BigQuery_loader_receita_CF \
+  --entry-point=load_receita_bigquery \
+  --trigger-topic=bigquery-loader-receita \
+  --timeout=3600s \
+  --memory=4Gi \
+  --max-instances=1 \
+  --set-env-vars PROJECT_ID=<SEU_PROJETO>,DATASET_ID=main_database,TABLE_NAME_ESTABELECIMENTOS=receita_estabelecimentos,TABLE_NAME_EMPRESAS=receita_empresas,BUCKET_NAME=dados-cnpjs,BASE_PATH=receita_federal
+```
+
+#### Runner local (evitar timeout)
+
+```bash
+cd Cloud_Functions/BigQuery_loader_receita_CF
+python run_loader_empresas_local.py --data-type empresas --period 2024-03
+# ou
+python run_loader_empresas_local.py --mode all --data-type all
+```
 
 ---
 
-## 🔄 Atualizar Funções
+## 5. Payloads e invocação
+
+### Downloads (GCS)
 
 ```bash
-# Após modificar código
-cd /home/saraiva/Documents/BIA/6p/PDM/TrabalhoFinal
+# Receita Estabelecimentos – arquivo único (recomendado)
+gcloud pubsub topics publish receita-estabelecimentos-download \
+  --message='{"folder":"2024-03","file":"Estabelecimentos0.zip"}'
 
-# Receita Federal
-gcloud functions deploy crawler-receita-federal \
-  --gen2 \
-  --region=southamerica-east1 \
-  --source=./Receita_Federal_CF \
+# Receita Empresas – listar arquivos
+gcloud pubsub topics publish receita-empresas-download --message='{"folder":"2024-03","list_files":true}'
+
+# Receita Lucros – arquivo específico
+gcloud pubsub topics publish receita-lucros-download --message='{"file":"Lucro Real.zip"}'
+
+# PGFN – trimestre/Data type
+gcloud pubsub topics publish fazenda-download \
+  --message='{"year":2024,"quarter":3,"data_type":"Dados_abertos_FGTS"}'
+
+# Banco Central – período
+gcloud pubsub topics publish banco-central-download --message='{"ano":2024,"mes":10}'
+```
+
+### Loaders BigQuery
+
+```bash
+# Receita (todos os períodos configurados)
+gcloud pubsub topics publish bigquery-loader-receita --message='{}'
+
+# Receita – período + tipo
+gcloud pubsub topics publish bigquery-loader-receita \
+  --message='{"period":"2024-03","data_type":"empresas","write_mode":"WRITE_APPEND"}'
+
+# PGFN
+gcloud pubsub topics publish bigquery-loader-fazenda --message='{}'
+```
+
+Payload do loader Receita:
+
+```json
+{
+  "period": "2024-03",          // opcional, processa somente o período informado
+  "data_type": "empresas",      // "estabelecimentos" | "empresas" | "all"
+  "write_mode": "WRITE_APPEND"  // default WRITE_TRUNCATE para primeira carga
+}
+```
+
+---
+
+## 6. Variáveis de ambiente úteis
+
+| Função | Variáveis chave |
+| --- | --- |
+| Crawlers Receita | `DESTINATION_BUCKET_NAME`, `BASE_PATH`, `START_YEAR_MONTH`, `END_YEAR_MONTH`, `ALLOWED_MONTHS` |
+| Crawlers Fazenda | `DESTINATION_BUCKET_NAME`, `BASE_PATH`, `START_YEAR`, `END_YEAR`, `END_QUARTER` |
+| Banco Central | `DESTINATION_BUCKET_NAME`, `BASE_PATH`, `PROJECT_ID`, `DATASET_ID` |
+| Loader Receita | `PROJECT_ID`, `DATASET_ID`, `TABLE_NAME_ESTABELECIMENTOS`, `TABLE_NAME_EMPRESAS`, `BUCKET_NAME`, `BASE_PATH` |
+| Loader Fazenda | `PROJECT_ID`, `DATASET_ID`, `BUCKET_NAME`, `BASE_PATH` |
+
+---
+
+## 7. Atualizar funções (redeploy rápido)
+
+```bash
+gcloud functions deploy crawler-receita-empresas \
+  --gen2 --region=us-east1 \
+  --source=./Cloud_Functions/Receita_empresas_CF \
   --entry-point=crawler_receita_pubsub
-
-# Fazenda Nacional
-gcloud functions deploy download-fazenda-nacional \
-  --gen2 \
-  --region=southamerica-east1 \
-  --source=./Fazenda_CF \
-  --entry-point=download_fazenda_pubsub
+# Repita trocando diretório/entry-point para as demais funções
 ```
 
 ---
 
-## 📝 Logs e Monitoramento
+## 8. Logs & monitoramento
 
 ```bash
-# Ver logs Receita Federal
-gcloud functions logs read crawler-receita-federal \
-  --gen2 \
-  --region=southamerica-east1 \
-  --limit=100
-
-# Ver logs Fazenda
-gcloud functions logs read download-fazenda-nacional \
-  --gen2 \
-  --region=southamerica-east1 \
-  --limit=100
-
-# Seguir logs em tempo real
-gcloud functions logs tail crawler-receita-federal \
-  --gen2 \
-  --region=southamerica-east1
+gcloud functions logs read crawler-receita-estabelecimentos --gen2 --region=us-east1 --limit=100
+gcloud functions logs read download-fazenda-nacional --gen2 --region=us-east1 --limit=100
+gcloud functions logs read bigquery-loader-receita --gen2 --region=us-central1 --limit=100
+gcloud functions logs tail crawler-receita-empresas --gen2 --region=us-east1
 ```
+
+Para Workflows/Schedulers veja `scripts/README.md`.
 
 ---
 
-## 📅 Agendar Execução Automática
-
-### Receita Federal (Mensal - Todo dia 1)
+## 9. Schedulers sugeridos
 
 ```bash
-gcloud scheduler jobs create pubsub receita-monthly \
-  --location=southamerica-east1 \
-  --schedule="0 2 1 * *" \
-  --time-zone="America/Sao_Paulo" \
-  --topic=receita-federal-download \
+# Receita Estabelecimentos / Empresas – dia 10
+gcloud scheduler jobs create pubsub receita-estabelecimentos-monthly \
+  --location=us-east1 \
+  --schedule="0 2 10 * *" \
+  --topic=receita-estabelecimentos-download \
   --message-body='{}'
-```
 
-### Fazenda Nacional (Trimestral)
+gcloud scheduler jobs create pubsub receita-empresas-monthly \
+  --location=us-east1 \
+  --schedule="0 3 10 * *" \
+  --topic=receita-empresas-download \
+  --message-body='{}'
 
-```bash
+# Fazenda – trimestral (Jan/Apr/Jul/Oct)
 gcloud scheduler jobs create pubsub fazenda-quarterly \
-  --location=southamerica-east1 \
-  --schedule="0 2 1 1,4,7,10 *" \
-  --time-zone="America/Sao_Paulo" \
+  --location=us-east1 \
+  --schedule="0 4 15 1,4,7,10 *" \
   --topic=fazenda-download \
   --message-body='{}'
+
+# Receita Lucros – fevereiro e agosto
+gcloud scheduler jobs create pubsub receita-lucros-semestral \
+  --location=us-east1 \
+  --schedule="0 5 1 2,8 *" \
+  --topic=receita-lucros-download \
+  --message-body='{}'
 ```
 
 ---
 
-## 🗑️ Remover Funções
+## 10. Remoção
 
 ```bash
-# Receita Federal
-gcloud functions delete crawler-receita-federal --gen2 --region=southamerica-east1
-gcloud pubsub topics delete receita-federal-download
-gcloud scheduler jobs delete receita-monthly --location=southamerica-east1
-
-# Fazenda Nacional
-gcloud functions delete download-fazenda-nacional --gen2 --region=southamerica-east1
-gcloud pubsub topics delete fazenda-download
-gcloud scheduler jobs delete fazenda-quarterly --location=southamerica-east1
+gcloud functions delete crawler-receita-empresas --gen2 --region=us-east1
+gcloud pubsub topics delete receita-empresas-download
+gcloud scheduler jobs delete receita-empresas-monthly --location=us-east1
+# Repita para cada função/topic/job conforme necessidade
 ```
 
 ---
 
-## 🛠️ Script Automatizado
-
-Use o script `deploy.sh` para deploy rápido:
-
-```bash
-./deploy.sh
-```
-
----
-
-## 📁 Estrutura dos Dados no Bucket
+## 11. Estrutura esperada no GCS
 
 ```
 gs://dados-cnpjs/
 ├── receita_federal/
-│   ├── 2023-03/
-│   │   ├── arquivo1.csv
-│   │   └── .Estabelecimentos0.extracted
-│   └── 2023-09/
-└── fazenda_nacional/
-    └── 2020/
-        └── 1trimestre/
-            ├── Nao_Previdenciario/
-            ├── FGTS/
-            └── Previdenciario/
+│   ├── estabelecimentos/2024-03/*.csv
+│   ├── empresas/2024-03/*.csv
+│   └── regime_tributario/<Regime>/*.csv
+├── fazenda_nacional/2024/3trimestre/<FGTS|Nao_Previdenciario|Previdenciario>/*.csv
+└── banco_central/2024-10/*.json
 ```
+
+Marcadores `.arquivo.extracted` evitam reprocessamentos.
+
+---
+
+## 12. Dicas rápidas
+
+- Estabelecimentos e Empresas geram arquivos grandes → publique mensagens por arquivo e monitore tempo restante.  
+- Para cargas BigQuery extensas, use o runner local e/ou defina `period` para processar em blocos.  
+- Particione/clusterize as tabelas no BigQuery para reduzir custo (`ano_mes` já é carregado dos arquivos).  
+- Scripts úteis: `scripts/enviar_mensagens_lote.sh` (envio em massa), `scripts/setup-schedulers.sh` (agendamentos).
+
+---
+
+Com estes passos você consegue subir toda a pipeline (download → GCS → BigQuery) e manter os jobs agendados/monitorados em produção. Dúvidas adicionais? Veja `ARCHITECTURE.md` ou `scripts/README.md`. 🚀

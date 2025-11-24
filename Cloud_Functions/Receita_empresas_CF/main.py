@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cloud Function para baixar arquivos de Estabelecimentos da Receita Federal
+Cloud Function para baixar arquivos de Empresas da Receita Federal
 Salva diretamente no Google Cloud Storage
 Baixa, extrai e deleta ZIPs automaticamente
 """
@@ -118,14 +118,14 @@ def get_available_folders(base_url: str) -> List[str]:
         return []
 
 
-def get_estabelecimento_files(folder_url: str) -> List[str]:
-    """Lista todos os arquivos de Estabelecimentos de uma pasta"""
+def get_empresas_files(folder_url: str) -> List[str]:
+    """Lista todos os arquivos de Empresas de uma pasta"""
     try:
         response = make_request_with_retry(folder_url)
         soup = BeautifulSoup(response.content, 'html.parser')
         
         files = []
-        pattern = re.compile(r'Estabelecimentos?\d+\.zip', re.IGNORECASE)
+        pattern = re.compile(r'Empresas?\d+\.zip', re.IGNORECASE)
         
         for link in soup.find_all('a'):
             href = link.get('href', '')
@@ -282,17 +282,17 @@ def process_single_file(folder_name: str, file_name: str) -> Dict[str, any]:
 
 def list_files_in_folder(folder: str) -> List[str]:
     """
-    Lista todos os arquivos de Estabelecimentos de uma pasta
+    Lista todos os arquivos de Empresas de uma pasta
     Retorna apenas os nomes dos arquivos
     """
     folder_url = urljoin(BASE_URL, folder)
-    files = get_estabelecimento_files(folder_url)
+    files = get_empresas_files(folder_url)
     return files
 
 
 def process_folder(folder: str) -> Dict[str, int]:
     """
-    Processa uma pasta específica (baixa todos os estabelecimentos)
+    Processa uma pasta específica (baixa todos as empresas)
     Retorna estatísticas
     """
     folder_url = urljoin(BASE_URL, folder)
@@ -303,7 +303,7 @@ def process_folder(folder: str) -> Dict[str, int]:
     print(f'{"=" * 80}')
     
     # Listar arquivos
-    files = get_estabelecimento_files(folder_url)
+    files = get_empresas_files(folder_url)
     
     if not files:
         print(f'⚠️  Nenhum arquivo encontrado')
@@ -408,7 +408,7 @@ def crawler_receita_pubsub(cloud_event):
     Handler Pub/Sub - processa arquivo individual, lista arquivos ou processa pasta
     
     Mensagens aceitas:
-    1. {"folder": "2024-03", "file": "Estabelecimentos0.zip"} - processa arquivo específico (RECOMENDADO)
+    1. {"folder": "2024-03", "file": "Empresas0.zip"} - processa arquivo específico (RECOMENDADO)
     2. {"folder": "2024-03", "list_files": true} - lista arquivos da pasta
     3. {"folder": "2024-03"} - processa todos arquivos da pasta (pode dar timeout!)
     4. {} ou {"list_folders": true} - lista todas as pastas disponíveis

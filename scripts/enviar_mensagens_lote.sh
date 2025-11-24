@@ -55,15 +55,15 @@ for FOLDER in "${FOLDERS[@]}"; do
     echo "📁 Pasta: $FOLDER"
     
     # 10 arquivos por pasta
-    for i in {0..9}; do
-        FILE="Estabelecimentos${i}.zip"
-        MESSAGE="{\"folder\": \"$FOLDER\", \"file\": \"$FILE\"}"
+    #for i in {0..9}; do
+    FILE="Estabelecimentos0.zip"
+    MESSAGE="{\"folder\": \"$FOLDER\", \"file\": \"$FILE\"}"
         
-        gcloud pubsub topics publish "$TOPIC" --message="$MESSAGE" &
+    gcloud pubsub topics publish "$TOPIC" --message="$MESSAGE" &
         
-        TOTAL=$((TOTAL + 1))
-        echo "  ✅ $FILE (mensagem $TOTAL)"
-    done
+    TOTAL=$((TOTAL + 1))
+    echo "  ✅ $FILE (mensagem $TOTAL)"
+    #done
     
     echo ""
 done

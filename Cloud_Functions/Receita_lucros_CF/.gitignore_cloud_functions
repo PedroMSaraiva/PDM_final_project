@@ -1,0 +1,48 @@
+# Gitignore específico para Cloud Functions
+
+# Arquivos de configuração local
+config.env
+.env
+*.env.local
+
+# Diretórios de download e extração locais
+downloads/
+extracted/
+output/
+
+# Credenciais GCP
+*.json
+service-account*.json
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Logs locais
+*.log
+logs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.tmp
+*.temp
+temp/
+tmp/
+
